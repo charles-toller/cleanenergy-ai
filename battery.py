@@ -36,9 +36,9 @@ class Battery:
         last = self.start_charge
         for i in range(0, len(self.charge_intervals)):
             delta, time = self.charge_intervals[i]
-            with_start_intervals.append((last + delta, time))
+            with_start_intervals.append((last + delta, time * 60))
             last += delta
-        with_start_intervals.append((next_movement[0] + last, next_movement[1]))
+        with_start_intervals.append((next_movement[0] + last, next_movement[1] * 60))
         duration = sum(y for x, y in with_start_intervals)
         soc_avg = (self.start_charge + with_start_intervals[0][0]) * with_start_intervals[0][1] / 2
         for i in range(1, len(with_start_intervals)):
@@ -53,11 +53,18 @@ class Battery:
         for i in range(0, len(with_start_intervals)):
             target, time = with_start_intervals[i]
             delta = last-target
+            last = target
+            if time == 0 or delta == 0:
+                continue
             k += ((time*pow(last+(delta*time/time)-soc_avg, 3))/3*delta) - ((time*pow(last-soc_avg, 3))/3*delta)
         soc_dev = 2*math.sqrt(3*k/duration)
-        # soc_dev = 1 / soc_dev
-        # soc_dev = k / duration
-        life = (1-self.charge) * kco * (1 - L) * math.exp(((soc_dev - 1) / kex * tnabs / ta) + (ksoc * (soc_avg - 0.5) * 4) + (tfact * (t - tnom) * (tnabs / ta)))
+        low = min(x for x, _ in with_start_intervals)
+        charged_to = with_start_intervals[len(with_start_intervals) - 1][0]
+        cycle = self.start_charge - low
+        if low != charged_to:
+            cycle += (charged_to - low)
+            cycle /= 2
+        life = cycle * kco * (1 - L) * math.exp(((soc_dev - 1) / kex * tnabs / ta) + (ksoc * (soc_avg - 0.5) * 4) + (tfact * (t - tnom) * (tnabs / ta)))
         return life
 
     def run(self, movement):
@@ -66,7 +73,7 @@ class Battery:
 
     def recharge_update_health(self, charge_amount):
         # Charging from empty -> full takes approximately 10 minutes
-        damage = self.calculate_damage((charge_amount, charge_amount * 600))
+        damage = self.calculate_damage((charge_amount, charge_amount * 10))
         self.lost_capacity += damage
         self.charge += charge_amount
         self.start_charge = self.charge

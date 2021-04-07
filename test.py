@@ -1,18 +1,15 @@
-from battery import Battery
+import math
 
-bat_deep = Battery()
-bat_shallow = Battery()
-bat_shallow_mid = Battery()
-for i in range(0, 200):
-    bat_deep.run((-1, 270))
-    bat_deep.recharge_update_health(1)
-    bat_shallow.run((-0.5, 135))
-    bat_shallow.recharge_update_health(0.5)
-    bat_shallow.run((-0.5, 135))
-    bat_shallow.recharge_update_health(0.5)
-    for j in range(0, 5):
-        bat_shallow_mid.run((-0.1, 30))
-        bat_shallow_mid.recharge_update_health(0.1)
-print(bat_deep.lost_capacity)
-print(bat_shallow.lost_capacity)
-print(bat_shallow_mid.lost_capacity)
+from warehouse import Warehouse
+
+warehouse = Warehouse()
+i = 0
+while warehouse.time < 525600:
+    warehouse.tick()
+    if i % 1e5 == 0:
+        print("Day {}".format(math.ceil(warehouse.time / 1440)))
+    i += 1
+print("Ran for {} days".format(math.ceil(warehouse.time / 1440)))
+print("Picked {} items with {} robots and {} chargers".format(warehouse.items_picked, len(warehouse.robots), len(warehouse.chargers)))
+for robot in warehouse.robots:
+    print("Battery Health: {}".format(math.floor((1-robot.battery.lost_capacity) * 100)))
