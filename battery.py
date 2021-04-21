@@ -40,6 +40,8 @@ class Battery:
             last += delta
         with_start_intervals.append((next_movement[0] + last, next_movement[1] * 60))
         duration = sum(y for x, y in with_start_intervals)
+        if duration == 0:
+            return 0
         soc_avg = (self.start_charge + with_start_intervals[0][0]) * with_start_intervals[0][1] / 2
         for i in range(1, len(with_start_intervals)):
             last_charge, _ = with_start_intervals[i - 1]
