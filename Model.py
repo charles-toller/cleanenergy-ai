@@ -25,6 +25,14 @@ class Model:
 
     def _define_model(self):
         self._define_model_2()
+        self.saver = tf.train.Saver(max_to_keep=100)
+
+    def save_model(self, sess, name="final"):
+        path = self.saver.save(sess, "/home/charles/projects/cleanenergy-ai/models/{}/model.ckpt".format(name))
+        print("Model saved at path: %s" % path)
+
+    def restore_model(self, sess, models_dir="", name="final"):
+        self.saver.restore(sess, "/home/charles/projects/cleanenergy-ai/models{}/{}/model.ckpt".format(models_dir, name))
 
     ## 2-layer model.
     def _define_model_2(self):

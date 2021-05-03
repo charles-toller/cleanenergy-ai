@@ -1,0 +1,40 @@
+<h2>Fleet charge optimization with multiagent reinforcement learning.</h2>
+<p>Problems:</p>
+<p>Simulate conditions in an Amazon warehouse (picker schedules, shelf layout, route cost)</p>
+<p>Reinforcement learning on a single-robot basis (when should I charge to not run out of energy)</p>
+<p>Reinforcement learning on fleet basis (when/how long should I charge to not run out of energy, and not starve the fleet)</p>
+<p>Project:</p>
+<p>Both relevant to an Amazon warehouse:</p>
+<p>A: Optimize the number of chargers for a given number of robots (charger:robot ratio)</p>
+<p>Optimizing this ratio saves warehouse space, and therefore HVAC costs for the warehouse.</p>
+<p>B: Optimize when to charge the robots given a fleet charge level, anticipated future load, and battery preservation optimization.</p>
+<p>Optimizing this distributes electric load, which can allow the warehouse to operate with fewer robots, and therefore fewer lithium-ion batteries that damage the environment.</p>
+<p>I picked modeling Amazon purely because little changes of efficiency, due to the scale of the system, results in large amounts of energy savings.</p>
+<p>Objective: fitness(strategy) = a*avg_fleet_battery_health - b*scaled_dead_robots + c*scaled_items_delivered - d*scaled_chargers_used - e*scaled_robots_used</p>
+<p>Essentially, we want to maximize the average battery health across the fleet (with a penalty for killing a robot's battery), along with the number of items we delivered. We want to minimize the number of chargers needed for this strategy, and the number of robots needed. a,b,c,d,e are constants to be tweaked to scale the priorities of the system.</p>
+<p>This function is a good way for an overseer to evaluate the performance of a given strategy at the end of the run, but during the run, we'll need a reward function, and it's clear to see how these translate: running the battery beyond the 40-80 range will lower the battery health quicker, and so fetching a item, while it would incur a reward for another item, would reduce the reward for the battery health. Charging another robot and choosing not to kick another robot off the chargers increases the number of chargers needed overall, and therefore reduces the reward for the action. Similarly, we can emulate having an "infinite" amount of robots in storage, but adding any of them to the fleet is permanent, and will decrease the reward by the number of robots used. All of these factors build into the reward function for any particular action, and the multiagent system will accumulate the highest reward.</p>
+<p>
+    <img src="https://usu.instructure.com/users/1589424/files/80109078/preview?verifier=C8k3zjNBB3ld8JBkQZH8iQV5WZ6fRUOipL1WzKVW" alt="Biography.png" data-api-endpoint="https://usu.instructure.com/api/v1/users/1589424/files/80109078" data-api-returntype="File" />&nbsp;&nbsp;
+</p>
+<p>
+    <iframe title="embedded content" src="https://docs.google.com/presentation/d/e/2PACX-1vSchtgSz7r3eeZam66zeEez_0Sn9yktHpPOUaiGoKUmsGYEd_RU-ejDJwfEcwSRi69-GWqEQsAN9blt/embed?start=false&amp;loop=false&amp;delayms=3000" width="960" height="569" allowfullscreen="allowfullscreen" webkitallowfullscreen="webkitallowfullscreen" mozallowfullscreen="mozallowfullscreen"></iframe>&nbsp;
+</p>
+<p>
+    <a class="instructure_file_link inline_disabled" href="https://www.cs.utexas.edu/~larg/ijcai17_tutorial/multiagent_learning.pdf" target="_blank" rel="noopener">A presentation (not mine) on many, many different types and implementations of multiagent reinforcement learning techniques</a>
+</p>
+<p>
+    <a class="instructure_file_link inline_disabled" href="https://github.com/deepmind/open_spiel" target="_blank" rel="noopener">OpenSpiel, a framework for describing types of cooperative/competitive games with reinforcement techniques</a>
+</p>
+<p>
+    <a class="inline_disabled" href="https://ieeexplore.ieee.org/document/5619782" target="_blank" rel="noopener">Modeling the charge/discharge/usage cycle of a lithium-ion battery</a>&nbsp;
+</p>
+<p>
+    <a class="inline_disabled" href="https://drops.dagstuhl.de/opus/volltexte/2018/8813/pdf/LIPIcs-FUN-2018-22.pdf" target="_blank" rel="noopener">A model for optimal charger placement in a warehouse</a>&nbsp;
+</p>
+<p>
+    <a class="inline_disabled" href="https://en.wikipedia.org/wiki/Amazon_Robotics" target="_blank" rel="noopener">Amazon Robots info</a>&nbsp;
+</p>
+<p>This link contains some interesting info, such as a 1:11 charge:use ratio, which is useful for modeling.</p>
+<p>
+    <a class="inline_disabled" href="https://usu.instructure.com/courses/639034/discussion_topics/2263362" target="_blank" rel="noopener" data-api-endpoint="https://usu.instructure.com/api/v1/courses/639034/discussion_topics/2263362" data-api-returntype="Discussion">Discussion Board</a>&nbsp;
+</p>

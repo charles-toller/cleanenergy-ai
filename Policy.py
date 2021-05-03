@@ -3,6 +3,7 @@ import types
 import random
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 from Memory import Memory
 from Model import Model
@@ -15,8 +16,10 @@ LAMBDA = 0.00001
 GAMMA = 0.99
 BATCH_SIZE = 50
 
-class Policy:
+plt.rcParams['figure.figsize'] = (16, 9)
 
+
+class Policy:
     model = Model(3, 2, BATCH_SIZE)
     _sess = None
     _eps = MAX_EPSILON
@@ -24,12 +27,15 @@ class Policy:
     _steps = 0
     _tot_reward = 0
     _loss = None
+    _is_training = False
 
     def __init__(self, sess):
         self._sess = sess
         sess.run(self.model.var_init)
 
     def select(self, robot):
+        if not self._is_training:
+            self._eps = 1
         action = 0
         state = robot.get_state()
         if state[0] < 0 and state[2] <= 0:
@@ -51,35 +57,88 @@ class Policy:
                 return Action.IDLE
             action = Action.CHARGE
             next_state, reward = robot.calc_step(action)
-        self._memory.add_sample((state, action.value - 1, reward, next_state))
-        self._replay()
-        self._steps += 1
-        self._eps = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * math.exp(-LAMBDA * self._steps)
+        if self._is_training:
+            self._memory.add_sample((state, action.value - 1, reward, next_state))
+            self._replay()
+            self._eps = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * math.exp(-LAMBDA * self._steps)
+            self._steps += 1
         self._tot_reward += reward
 
         return action
 
-    def run(self):
-        warehouse = Warehouse(self.select)
+    def train(self, write_to_file=False):
+        self._is_training = True
+        self._inner_run(write_to_file)
+        self.model.save_model(self._sess)
+
+    def run(self, load=False, models_dir="", name="final", write_to_file=False):
+        self._is_training = False
+        if load:
+            self.model.restore_model(self._sess, models_dir=models_dir, name=name)
+        self._inner_run(write_to_file, run_for_time=5, show_graphs=False)
+
+    def _inner_run(self, write_to_file, run_for_time=90*1440, show_graphs=True):
+        warehouse = Warehouse(self.select, write_to_file=write_to_file)
         self._tot_reward = 0
         i = 0
         last_damage = [robot.battery.lost_capacity for robot in warehouse.robots]
-        while warehouse.time < 525600:
+        x = []
+        loss_y = []
+        damage_y = []
+        reward_y = []
+        low_y = []
+        high_y = []
+        while warehouse.time < run_for_time:
             warehouse.tick()
             if warehouse.time // 1440 > i:
                 new_damage = [robot.battery.lost_capacity for robot in warehouse.robots]
                 avg_damage = sum(n - o for n, o in zip(new_damage, last_damage)) / len(new_damage)
-                print("Day {}, today's reward is {}, average damage is {}, loss {}".format(i, self._tot_reward, avg_damage, self._loss))
+                print("Day {}, today's reward is {}, average damage is {}, loss {}".format(i, self._tot_reward,
+                                                                                           avg_damage, self._loss))
+                self.model.save_model(self._sess, name="day{}".format(i))
+                x.append(i)
+                loss_y.append(self._loss)
+                damage_y.append(avg_damage)
+                reward_y.append(self._tot_reward)
+                lows_total = 0
+                highs_total = 0
+                count = 0
+                for robot in warehouse.robots:
+                    lows_total += sum(robot.battery.lows)
+                    highs_total += sum(robot.battery.highs)
+                    count += len(robot.battery.lows)
+                low_y.append(lows_total / count)
+                high_y.append(highs_total / count)
                 i += 1
                 self._tot_reward = 0
                 self._loss = None
                 last_damage = new_damage
-
-        print("Ran for {} days".format(math.ceil(warehouse.time / 1440)))
-        print("Picked {} items with {} robots and {} chargers".format(warehouse.items_picked, len(warehouse.robots),
-                                                                      len(warehouse.chargers)))
-        for robot in warehouse.robots:
-            print("Battery Health: {}".format(math.floor((1 - robot.battery.lost_capacity) * 100)))
+        if write_to_file:
+            for robot in warehouse.robots:
+                robot.file.close()
+        loss_y = np.clip(loss_y, None, 1)
+        if show_graphs:
+            plt.plot(x, loss_y, 'bo', x, loss_y, 'k')
+            plt.xlabel('Days')
+            plt.ylabel('Loss')
+            plt.title('Loss over Time (Lower is "Better")')
+            plt.show()
+            plt.plot(x, damage_y, 'bo', x, damage_y, 'k')
+            plt.xlabel('Days')
+            plt.ylabel('Battery Damage')
+            plt.title('Additional Battery Damage over Time (Lower is Better)')
+            plt.show()
+            plt.plot(x, reward_y, 'bo', x, reward_y, 'k')
+            plt.xlabel('Days')
+            plt.ylabel('Profit/Reward')
+            plt.title('Reward/Profit over Time (Higher is Better)')
+            plt.show()
+            plt.plot(x, low_y, 'bo', x, low_y, 'k')
+            plt.plot(x, high_y, 'ro', x, high_y, 'k')
+            plt.xlabel('Days')
+            plt.ylabel('Charge Range')
+            plt.title('Charge High/Low over Time (Closer to 0.5 is better)')
+            plt.show()
 
     def _replay(self):
         batch = self._memory.sample(self.model.batch_size)
@@ -102,7 +161,9 @@ class Policy:
         if self._loss is None or self._loss > loss:
             self._loss = loss
 
+
 if __name__ == '__main__':
     with tf.Session() as sess:
         p = Policy(sess)
-        p.run()
+        p.run(models_dir="_10", write_to_file=True, load=False, name="final")
+        # p.train(write_to_file=False)

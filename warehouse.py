@@ -24,8 +24,11 @@ class Warehouse:
     items_picked = 0
     selector = selector_mod.selector
 
-    def __init__(self, selector):
-        self.robots = [Robot(self) for _ in range(NUM_ROBOTS)]
+    def __init__(self, selector, write_to_file=False):
+        if write_to_file:
+            self.robots = [Robot(self, file=open("/home/charles/projects/cleanenergy-ai/data/robot{}.json".format(i), "w")) for i in range(NUM_ROBOTS)]
+        else:
+            self.robots = [Robot(self) for _ in range(NUM_ROBOTS)]
         self.chargers = [None for _ in range(NUM_CHARGERS)]
         self.selector = selector
 
@@ -44,7 +47,6 @@ class Warehouse:
                 pass
             action = self.selector(robot)
             if action == Action.CHARGE:
-                robot.move_to(0, 0)
                 try:
                     charger = self.chargers.index(None)
                 except ValueError:
@@ -54,22 +56,44 @@ class Warehouse:
                 if action != Action.IDLE:
                     if LOG:
                         print("Charging robot {} (at {}%) on charger {}".format(self.robots.index(robot), math.floor(robot.battery.charge * 100), charger))
+                    s_move_time = robot.time
                     robot.move_to(0, charger)
                     robot.move_to(1, charger)
+                    s_charge_time = robot.time
                     self.chargers[charger] = robot
                     robot.charge(min(1 - robot.battery.charge, 0.05))
+                    e_charge_time = robot.time
             if action == Action.FETCH_ITEM:
-                item_y = random.randint(1, 100)
-                picker = -random.randint(1, 100)
+                if robot.x != 0:
+                    robot.move_to(0, robot.y)
+                item_x = -random.randint(1, 10)
+                item_y = (random.randint(1, 5) * 2) - 1
+                picker = -random.randint(1, 10)
                 if LOG:
                     # print("Sending robot {} to pick item on row {} for picker {}".format(self.robots.index(robot), item_y, -picker))
                     pass
                 robot.move_to(0, item_y)
-                robot.move_to(-101, item_y)
-                robot.move_to(-101, -1)
+                robot.move_to(item_x, item_y)
+                # Wait for pickup
+                robot.pickup()
+                robot.move_to(item_x, item_y + 1)
+                robot.move_to(-11, item_y + 1)
+                robot.move_to(-11, 0)
+                robot.move_to(picker, 0)
                 robot.move_to(picker, -1)
+                # Wait for picker
+                robot.time += (7 / 60)
+                robot.move_to(picker, 0)
+                robot.move_to(0, 0)
+                robot.move_to(0, item_y + 1)
+                robot.move_to(item_x, item_y + 1)
+                robot.move_to(item_x, item_y)
+                # Wait for setdown
+                robot.setdown()
+                robot.move_to(0, item_y)
                 affected_robots.append(self.robots.index(robot))
                 self.items_picked += 1
+
             else:
                 robot.time += 1
         # for i in affected_robots:

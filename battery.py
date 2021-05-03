@@ -26,6 +26,9 @@ class Battery:
     start_charge = 1
     charge_intervals = None
 
+    lows = []
+    highs = []
+
     def __init__(self):
         self.charge_intervals = []
 
@@ -77,6 +80,12 @@ class Battery:
         # Charging from empty -> full takes approximately 10 minutes
         damage = self.calculate_damage((charge_amount, charge_amount * 10))
         self.lost_capacity += damage
+        if len(self.charge_intervals) > 0:
+            self.lows.append(self.charge)
+            self.highs.append(self.charge + charge_amount)
+        else:
+            self.highs.pop()
+            self.highs.append(self.charge + charge_amount)
         self.charge += charge_amount
         self.start_charge = self.charge
         self.charge_intervals = []
