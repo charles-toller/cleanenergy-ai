@@ -31,11 +31,10 @@ class Policy:
 
     def __init__(self, sess):
         self._sess = sess
-        sess.run(self.model.var_init)
 
     def select(self, robot):
         if not self._is_training:
-            self._eps = 1
+            self._eps = 0
         action = 0
         state = robot.get_state()
         if state[0] < 0 and state[2] <= 0:
@@ -67,6 +66,7 @@ class Policy:
         return action
 
     def train(self, write_to_file=False):
+        sess.run(self.model.var_init)
         self._is_training = True
         self._inner_run(write_to_file)
         self.model.save_model(self._sess)
@@ -75,7 +75,7 @@ class Policy:
         self._is_training = False
         if load:
             self.model.restore_model(self._sess, models_dir=models_dir, name=name)
-        self._inner_run(write_to_file, run_for_time=5, show_graphs=False)
+        self._inner_run(write_to_file, run_for_time=150, show_graphs=False)
 
     def _inner_run(self, write_to_file, run_for_time=90*1440, show_graphs=True):
         warehouse = Warehouse(self.select, write_to_file=write_to_file)
@@ -95,7 +95,8 @@ class Policy:
                 avg_damage = sum(n - o for n, o in zip(new_damage, last_damage)) / len(new_damage)
                 print("Day {}, today's reward is {}, average damage is {}, loss {}".format(i, self._tot_reward,
                                                                                            avg_damage, self._loss))
-                self.model.save_model(self._sess, name="day{}".format(i))
+                if self._is_training:
+                    self.model.save_model(self._sess, name="day{}".format(i))
                 x.append(i)
                 loss_y.append(self._loss)
                 damage_y.append(avg_damage)
@@ -116,13 +117,15 @@ class Policy:
         if write_to_file:
             for robot in warehouse.robots:
                 robot.file.close()
-        loss_y = np.clip(loss_y, None, 1)
+        if self._is_training:
+            loss_y = np.clip(loss_y, None, 1)
         if show_graphs:
-            plt.plot(x, loss_y, 'bo', x, loss_y, 'k')
-            plt.xlabel('Days')
-            plt.ylabel('Loss')
-            plt.title('Loss over Time (Lower is "Better")')
-            plt.show()
+            if self._is_training:
+                plt.plot(x, loss_y, 'bo', x, loss_y, 'k')
+                plt.xlabel('Days')
+                plt.ylabel('Loss')
+                plt.title('Loss over Time (Lower is "Better")')
+                plt.show()
             plt.plot(x, damage_y, 'bo', x, damage_y, 'k')
             plt.xlabel('Days')
             plt.ylabel('Battery Damage')
@@ -165,5 +168,5 @@ class Policy:
 if __name__ == '__main__':
     with tf.Session() as sess:
         p = Policy(sess)
-        p.run(models_dir="_10", write_to_file=True, load=False, name="final")
+        p.run(models_dir="_10", write_to_file=True, load=True, name="day89")
         # p.train(write_to_file=False)

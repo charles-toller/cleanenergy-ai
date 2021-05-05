@@ -30,6 +30,8 @@ class Warehouse:
         else:
             self.robots = [Robot(self) for _ in range(NUM_ROBOTS)]
         self.chargers = [None for _ in range(NUM_CHARGERS)]
+        self.pickers = [0 for _ in range(10)]
+        self.shelves = [[0 for _ in range(10)] for _ in range(5)]
         self.selector = selector
 
     def chargers_available(self, robot):
@@ -68,7 +70,12 @@ class Warehouse:
                     robot.move_to(0, robot.y)
                 item_x = -random.randint(1, 10)
                 item_y = (random.randint(1, 5) * 2) - 1
+                while self.shelves[item_y // 2][-item_x-1] > robot.time:
+                    item_x = -random.randint(1, 10)
+                    item_y = (random.randint(1, 5) * 2) - 1
                 picker = -random.randint(1, 10)
+                while self.pickers[-picker-1] > robot.time:
+                    picker = -random.randint(1, 10)
                 if LOG:
                     # print("Sending robot {} to pick item on row {} for picker {}".format(self.robots.index(robot), item_y, -picker))
                     pass
@@ -84,12 +91,14 @@ class Warehouse:
                 # Wait for picker
                 robot.time += (7 / 60)
                 robot.move_to(picker, 0)
+                self.pickers[-picker - 1] = robot.time
                 robot.move_to(0, 0)
                 robot.move_to(0, item_y + 1)
                 robot.move_to(item_x, item_y + 1)
                 robot.move_to(item_x, item_y)
                 # Wait for setdown
                 robot.setdown()
+                self.shelves[item_y // 2][-item_x - 1] = robot.time
                 robot.move_to(0, item_y)
                 affected_robots.append(self.robots.index(robot))
                 self.items_picked += 1
